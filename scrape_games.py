@@ -1,3 +1,4 @@
+import asyncio
 import json
 import praw
 import time
@@ -16,7 +17,7 @@ def create_reddit_object(json_file = "reddit_config.json", json_key="reddit_cred
     return reddit
 
 def scrape_gamedealsfree():
-    x = 3
+    x = 4
     date_of_newest_post = time.time() - (24*60*60) * x # for testing, just set it to x days back so we can initially grab all posts from the previous 3 days. probably going to have x = 1 in final version
     print(date_of_newest_post)
 
@@ -27,6 +28,11 @@ def scrape_gamedealsfree():
     unread_recent_posts = []
     for post in recent_posts:
         print(post.title, post.created_utc)
+
+        linked_submission = reddit.submission(url=post.url)
+        print("LINKED SUBMISSION: " + linked_submission.title)
+        print("LINKED SUBMISSION URL: " + linked_submission.url)
+
         if post.created_utc > date_of_newest_post:
             print("this was a new post")
             unread_recent_posts.append(post)    # Get a list of which posts you haven't seen yet
@@ -40,4 +46,8 @@ def scrape_gamedealsfree():
         for unread_post in unread_recent_posts:
             print(unread_post.created_utc)
 
-scrape_gamedealsfree()
+def main():
+    print("Scraping r/gamedealsfree")
+    scrape_gamedealsfree()
+
+main()
