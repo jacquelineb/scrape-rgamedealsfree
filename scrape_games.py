@@ -1,6 +1,5 @@
 import asyncio
 import json
-import os
 import praw
 import re
 import time
@@ -28,25 +27,15 @@ async def on_ready():
     print(bot.user.id)
     bot.loop.create_task(scrape_gamedealsfree())
 
-def create_reddit_object():
-    reddit_configs = get_configs("config.json", "reddit")
-    reddit = praw.Reddit(client_id=reddit_configs["id"],
-                         client_secret=reddit_configs["secret"],
-                         user_agent=reddit_configs["agent"],
-                         username=reddit_configs["username"],
-                         password=reddit_configs["password"])
-
-    return reddit
-
 async def scrape_gamedealsfree():
     reddit_obj = create_reddit_object()
     gamedealsfree_subreddit = reddit_obj.subreddit("gamedealsfree")
 
-    x = 5
-    date_of_newest_post = time.time() - (24*60*60) * x  # for testing, just set it to x days back so we can initially grab all posts from the previous 3 days. probably going to have x = 1 in final version
+    # I just initialize @date_of_newest_post to a day back so the bot can get yesterday's posts the first time it is run.
+    date_of_newest_post = time.time() - (3600*24)
 
     while True:
-        recent_posts = gamedealsfree_subreddit.new(limit=7)  # Get the 7 newest posts from r/gamedealsfree. There usually aren't that many free games a day so I only check the 7 newest posts.
+        recent_posts = gamedealsfree_subreddit.new(limit=7)  # There usually aren't that many free games a day so I only check the 7 newest posts.
         unread_recent_posts = []
         for post in recent_posts:
             if post.created_utc > date_of_newest_post:
@@ -61,7 +50,18 @@ async def scrape_gamedealsfree():
             discord_msg = create_discord_msg(filtered_posts)
             await bot.get_channel(DISCORD_CHANNEL).send(discord_msg)
 
-        await asyncio.sleep(3600)
+        # Sleep for two hours
+        await asyncio.sleep(3600 * 2)
+
+def create_reddit_object():
+    reddit_configs = get_configs("config.json", "reddit")
+    reddit = praw.Reddit(client_id=reddit_configs["id"],
+                         client_secret=reddit_configs["secret"],
+                         user_agent=reddit_configs["agent"],
+                         username=reddit_configs["username"],
+                         password=reddit_configs["password"])
+
+    return reddit
 
 def filter_posts(unread_posts, reddit_obj):
     filtered_posts = []
