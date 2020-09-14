@@ -1,56 +1,95 @@
+import asyncio
 import json
+import os
 import praw
 import re
 import time
+from discord.ext.commands import Bot
+#from dotenv import load_dotenv
 
-def create_reddit_object(json_file = "reddit_config.json", json_key="reddit_creds"):
-    with open(json_file) as f:
+#load_dotenv()
+#DISCORD_TOKEN = os.getenv("DISCORD_TOKEN")
+
+BOT_PREFIX = ("!")
+bot = Bot(command_prefix=BOT_PREFIX)
+
+@bot.event
+async def on_ready():
+    print("Logged in as:")
+    print(bot.user.name)
+    print(bot.user.id)
+    bot.loop.create_task(scrape_gamedealsfree())
+
+def get_configs(config_file, json_key):
+    with open(config_file) as f:
         data = json.load(f)
 
-    reddit_credentials = data[json_key]
-    reddit = praw.Reddit(client_id=reddit_credentials["id"],
-                         client_secret=reddit_credentials["secret"],
-                         user_agent=reddit_credentials["agent"],
-                         username=reddit_credentials["username"],
-                         password=reddit_credentials["password"])
+    return data[json_key]
+
+def create_reddit_object():
+    reddit_configs = get_configs("config.json", "reddit")
+    reddit = praw.Reddit(client_id=reddit_configs["id"],
+                         client_secret=reddit_configs["secret"],
+                         user_agent=reddit_configs["agent"],
+                         username=reddit_configs["username"],
+                         password=reddit_configs["password"])
 
     return reddit
 
-def scrape_gamedealsfree():
+async def scrape_gamedealsfree():
+    reddit_obj = create_reddit_object()
+    gamedealsfree_subreddit = reddit_obj.subreddit("gamedealsfree")
+
     x = 5
-    date_of_newest_post = time.time() - (24*60*60) * x # for testing, just set it to x days back so we can initially grab all posts from the previous 3 days. probably going to have x = 1 in final version
+    date_of_newest_post = time.time() - (24*60*60) * x  # for testing, just set it to x days back so we can initially grab all posts from the previous 3 days. probably going to have x = 1 in final version
     print("Date of newest post: ", date_of_newest_post)
 
-    reddit = create_reddit_object()
-    gamedealsfree_subreddit = reddit.subreddit("gamedealsfree")
-
-    ACCEPTED_SITES_REGEX = re.compile(r"https:\/\/(www.)?(epicgames|humblebundle|gog|store.steampowered)\.com\/.*")
     while True:
         recent_posts = gamedealsfree_subreddit.new(limit=7)  # Get the 7 newest posts from r/gamedealsfree. There usually aren't that many free games a day so I only check the 7 newest posts.
         unread_recent_posts = []
         for post in recent_posts:
             if post.created_utc > date_of_newest_post:
-                linked_submission = reddit.submission(url=post.url)
-                if ACCEPTED_SITES_REGEX.search(linked_submission.url):
-                    unread_recent_posts.append(post)
+                unread_recent_posts.append(post)
 
-            else:   # Posts are stored from newer to older. Once we reach a post older than date_of_newest post, we've already seen everything else in the list, so we can just break
+            else:  # Posts are stored from newer to older. Once we reach a post older than date_of_newest post, we've already seen everything else in the list, so we can just break
                 break
 
         if len(unread_recent_posts):
+            print(unread_recent_posts[0].created_utc)
             date_of_newest_post = unread_recent_posts[0].created_utc
-            print_new_posts(unread_recent_posts)
+            filtered_posts = filter_posts(unread_recent_posts, reddit_obj)
+            discord_msg = create_discord_msg(filtered_posts)
+            print(discord_msg)
+            await bot.get_channel(DISCORD_CHANNEL).send(discord_msg)
 
         print("going to sleep for an hour")
-        time.sleep(3600)
+        await asyncio.sleep(3600)
         print("woke up")
 
-def print_new_posts(unread_posts):
+def filter_posts(unread_posts, reddit_obj):
+    accepted_sites_regex = re.compile(r"^https:\/\/(www.)?(epicgames|humblebundle|gog|store.steampowered|ubisoft)\.com")
+    filtered_posts = []
     for post in unread_posts:
-        print(post.title, post.created_utc)
+        linked_submission = reddit_obj.submission(url=post.url)
+        if accepted_sites_regex.search(linked_submission.url):
+            filtered_posts.append(post.url)
+            #print(post.url)
 
-def main():
-    print("Scraping r/gamedealsfree")
-    scrape_gamedealsfree()
+    return filtered_posts
 
-main()
+def create_discord_msg(posts):
+    discord_msg = ""
+    num = 1
+    for post in posts:
+        discord_msg += str(num) + ". " + post + "\n"
+        num += 1
+
+    return discord_msg
+
+
+def get_discord_token(discord_configs):
+    return discord_configs["token"]
+
+DISCORD_TOKEN = get_discord_token(get_configs("config.json", "discord"))
+DISCORD_CHANNEL = get_configs("config.json", "discord")["channel"]
+bot.run(DISCORD_TOKEN)
