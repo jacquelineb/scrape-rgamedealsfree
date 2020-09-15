@@ -1,0 +1,14 @@
+{
+    "discord" : {
+        "token" : "secret discord token",
+        "channel" : numeric discord channel id to send messages to
+    },
+
+    "reddit" : {
+        "id" : "reddit id",
+        "secret" : "reddit secret",
+        "agent" : "reddit agent",
+        "username" : "reddit username",
+        "password" : "reddit password"
+    }
+}
