@@ -55,8 +55,9 @@ async def scrape_gamedealsfree():
         if len(unread_recent_submissions):
             date_of_newest_submission = unread_recent_submissions[0].created_utc
             filtered_submissions = filter_submissions(unread_recent_submissions, reddit_obj)
-            discord_msg = create_discord_msg(filtered_submissions)
-            await bot.get_channel(DISCORD_CHANNEL).send(discord_msg)
+            if len(filtered_submissions):
+                discord_msg = create_discord_msg(filtered_submissions)
+                await bot.get_channel(DISCORD_CHANNEL).send(discord_msg)
 
         await asyncio.sleep(3600 * 2)
 
