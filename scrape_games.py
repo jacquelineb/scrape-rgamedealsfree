@@ -15,7 +15,7 @@ REDDIT = praw.Reddit(
 )
 
 ACCEPTED_GAME_SITES = re.compile(
-    r"^https:\/\/(www.)?(epicgames|humblebundle|gog|store.steampowered|ubisoft)\.com"
+    r"^https:\/\/(www.)?(store.epicgames|humblebundle|gog|store.steampowered|ubisoft)\.com"
 )
 
 
