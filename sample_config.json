@@ -1,14 +1,11 @@
 {
-    "discord" : {
-        "token" : "secret discord token",
-        "channel" : numeric discord channel id to send messages to
-    },
+  "discord": {
+    "webhook_url": "the discord webhook url you want to post to"
+  },
 
-    "reddit" : {
-        "id" : "reddit id",
-        "secret" : "reddit secret",
-        "agent" : "reddit agent",
-        "username" : "reddit username",
-        "password" : "reddit password"
-    }
+  "reddit": {
+    "id": "reddit id",
+    "secret": "reddit secret",
+    "agent": "reddit agent"
+  }
 }

@@ -3,7 +3,8 @@ import json
 import praw
 import re
 import time
-from discord.ext.commands import Bot
+import requests
+
 
 def get_configs(config_file, json_key):
     with open(config_file) as f:
@@ -11,21 +12,15 @@ def get_configs(config_file, json_key):
 
     return data[json_key]
 
+
 DISCORD_SECRETS = get_configs("config.json", "discord")
-DISCORD_TOKEN = DISCORD_SECRETS["token"]
-DISCORD_CHANNEL = DISCORD_SECRETS["channel"]
+DISCORD_WEBHOOK_URL = DISCORD_SECRETS["webhook_url"]
 
-BOT_PREFIX = ("!")
-bot = Bot(command_prefix=BOT_PREFIX)
 
-ACCEPTED_GAME_SITES = re.compile(r"^https:\/\/(www.)?(epicgames|humblebundle|gog|store.steampowered|ubisoft)\.com")
+ACCEPTED_GAME_SITES = re.compile(
+    r"^https:\/\/(www.)?(epicgames|humblebundle|gog|store.steampowered|ubisoft)\.com"
+)
 
-@bot.event
-async def on_ready():
-    print("Logged in as:")
-    print(bot.user.name)
-    print(bot.user.id)
-    bot.loop.create_task(scrape_gamedealsfree())
 
 def get_unread_recent_submissions(recent_submissions, date_of_newest_submission):
     unread_submissions = []
@@ -40,36 +35,59 @@ def get_unread_recent_submissions(recent_submissions, date_of_newest_submission)
 
     return unread_submissions
 
+
 async def scrape_gamedealsfree():
     reddit_obj = create_reddit_object()
     gamedealsfree_subreddit = reddit_obj.subreddit("gamedealsfree")
 
-    # I just initialize @date_of_newest_submission to a day back so the bot can get yesterday's submissions the first time it is run.
-    date_of_newest_submission = time.time() - (3600*24)
+    # I just initialize @date_of_newest_submission to a day back so the bot can get some submissions the first time it is run.
+    date_of_newest_submission = time.time() - (3600 * 24)
 
     while True:
-        # There usually aren't that many free games a day so I only check the 7 newest submissions.
-        recent_submissions = gamedealsfree_subreddit.new(limit=7)
-        unread_recent_submissions = get_unread_recent_submissions(recent_submissions, date_of_newest_submission)
+        print("Checking r/gamedealsfree...")
+        # There usually aren't that many free games a day so I only check the 10 newest submissions.
+        recent_submissions = gamedealsfree_subreddit.new(limit=10)
+        unread_recent_submissions = get_unread_recent_submissions(
+            recent_submissions, date_of_newest_submission
+        )
 
         if len(unread_recent_submissions):
             date_of_newest_submission = unread_recent_submissions[0].created_utc
-            filtered_submissions = filter_submissions(unread_recent_submissions, reddit_obj)
+            filtered_submissions = filter_submissions(
+                unread_recent_submissions, reddit_obj
+            )
+            print(filtered_submissions)
             if len(filtered_submissions):
                 discord_msg = create_discord_msg(filtered_submissions)
-                await bot.get_channel(DISCORD_CHANNEL).send(discord_msg)
+                print(discord_msg)
+                result = requests.post(
+                    DISCORD_WEBHOOK_URL, json={"content": discord_msg}
+                )
+
+                try:
+                    result.raise_for_status()
+                except requests.exceptions.HTTPError as err:
+                    print(err)
+                else:
+                    print(
+                        "Payload delivered successfully, code {}.".format(
+                            result.status_code
+                        )
+                    )
 
         await asyncio.sleep(3600 * 2)
 
+
 def create_reddit_object():
     reddit_configs = get_configs("config.json", "reddit")
-    reddit = praw.Reddit(client_id=reddit_configs["id"],
-                         client_secret=reddit_configs["secret"],
-                         user_agent=reddit_configs["agent"],
-                         username=reddit_configs["username"],
-                         password=reddit_configs["password"])
+    reddit = praw.Reddit(
+        client_id=reddit_configs["id"],
+        client_secret=reddit_configs["secret"],
+        user_agent=reddit_configs["agent"],
+    )
 
     return reddit
+
 
 def filter_submissions(unread_submissions, reddit_obj):
     """Return a list of r/gamedeals urls (strings) that reference games redeemed from a certain selection of sites.
@@ -90,11 +108,16 @@ def filter_submissions(unread_submissions, reddit_obj):
 
     return filtered_submissions
 
+
 def create_discord_msg(submissions):
-    discord_msg = ""
+    discord_msg = f"Found {len(submissions)} free game(s) on r/gamedealsfree\n"
     for count, submission in enumerate(submissions, start=1):
         discord_msg += str(count) + ". " + submission + "\n"
 
     return discord_msg
 
-bot.run(DISCORD_TOKEN)
+
+loop = asyncio.get_event_loop()
+tasks = [loop.create_task(scrape_gamedealsfree())]
+loop.run_until_complete(asyncio.wait(tasks))
+loop.close()
