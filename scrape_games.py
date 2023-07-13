@@ -1,20 +1,16 @@
 import asyncio
-import json
 import praw
 import re
 import time
 import requests
+import os
+from dotenv import load_dotenv
 
-
-def get_configs(config_file, json_key):
-    with open(config_file) as f:
-        data = json.load(f)
-
-    return data[json_key]
-
-
-DISCORD_SECRETS = get_configs("config.json", "discord")
-DISCORD_WEBHOOK_URL = DISCORD_SECRETS["webhook_url"]
+load_dotenv()
+DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
+REDDIT_ID = os.getenv("REDDIT_ID")
+REDDIT_SECRET = os.getenv("REDDIT_SECRET")
+REDDIT_AGENT = os.getenv("REDDIT_AGENT")
 
 ACCEPTED_GAME_SITES = re.compile(
     r"^https:\/\/(www.)?(epicgames|humblebundle|gog|store.steampowered|ubisoft)\.com"
@@ -36,8 +32,10 @@ def get_unread_submissions(recent_submissions, last_read_date):
 
 
 async def scrape_gamedealsfree():
-    reddit_obj = create_reddit_object()
-    gamedealsfree_subreddit = reddit_obj.subreddit("gamedealsfree")
+    reddit = praw.Reddit(
+        client_id=REDDIT_ID, client_secret=REDDIT_SECRET, user_agent=REDDIT_AGENT
+    )
+    gamedealsfree_subreddit = reddit.subreddit("gamedealsfree")
 
     # I just initialize @date_of_newest_submission to a day back so the bot can get some submissions the first time it is run.
     date_of_newest_submission = time.time() - (3600 * 24)
@@ -52,7 +50,7 @@ async def scrape_gamedealsfree():
 
         if len(unread_submissions):
             date_of_newest_submission = unread_submissions[0].created_utc
-            filtered_submissions = filter_submissions(unread_submissions, reddit_obj)
+            filtered_submissions = filter_submissions(unread_submissions, reddit)
 
             if len(filtered_submissions):
                 discord_msg = create_discord_msg(filtered_submissions)
@@ -69,17 +67,6 @@ async def scrape_gamedealsfree():
 
         print("Done. Checking again in 2 hours...")
         await asyncio.sleep(3600 * 2)
-
-
-def create_reddit_object():
-    reddit_configs = get_configs("config.json", "reddit")
-    reddit = praw.Reddit(
-        client_id=reddit_configs["id"],
-        client_secret=reddit_configs["secret"],
-        user_agent=reddit_configs["agent"],
-    )
-
-    return reddit
 
 
 def filter_submissions(unread_submissions, reddit_obj):
