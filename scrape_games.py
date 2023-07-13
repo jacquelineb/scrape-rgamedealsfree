@@ -49,10 +49,10 @@ async def scrape_gamedealsfree():
 
         if len(unread_submissions):
             date_of_newest_submission = unread_submissions[0].created_utc
-            filtered_submissions = filter_submissions(unread_submissions)
+            acceptable_submissions = get_acceptable_submissions(unread_submissions)
 
-            if len(filtered_submissions):
-                discord_msg = create_discord_msg(filtered_submissions)
+            if len(acceptable_submissions):
+                discord_msg = create_discord_msg(acceptable_submissions)
                 result = requests.post(
                     DISCORD_WEBHOOK_URL, json={"content": discord_msg}
                 )
@@ -68,7 +68,7 @@ async def scrape_gamedealsfree():
         await asyncio.sleep(3600 * 2)
 
 
-def filter_submissions(unread_submissions):
+def get_acceptable_submissions(unread_submissions):
     """Return a list of r/gamedeals urls (strings) that reference games redeemed from a certain selection of sites.
 
     Each Submission in @unread_submissions comes from r/gamedealsfree. An r/gamedealsfree Submission links to an r/gamedeals Submission,
@@ -76,16 +76,16 @@ def filter_submissions(unread_submissions):
 
     The url of the gamesite linked from the r/gamedeals Submission is checked against a regex (ACCEPTED_GAME_SITES) to
     determine if it comes from the accepted selection of sites. If so, the url of the r/gamedeals Submission
-    (NOT the r/gamedealsfree submission) is added to the returned list @filtered_submissions.
+    (NOT the r/gamedealsfree submission) is added to the returned list @acceptable_submissions.
     """
 
-    filtered_submissions = []
+    acceptable_submissions = []
     for submission in unread_submissions:
         linked_submission = REDDIT.submission(url=submission.url)
         if ACCEPTED_GAME_SITES.search(linked_submission.url):
-            filtered_submissions.append(submission.url)
+            acceptable_submissions.append(submission.url)
 
-    return filtered_submissions
+    return acceptable_submissions
 
 
 def create_discord_msg(submissions):
