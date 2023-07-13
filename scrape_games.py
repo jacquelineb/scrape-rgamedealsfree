@@ -16,7 +16,6 @@ def get_configs(config_file, json_key):
 DISCORD_SECRETS = get_configs("config.json", "discord")
 DISCORD_WEBHOOK_URL = DISCORD_SECRETS["webhook_url"]
 
-
 ACCEPTED_GAME_SITES = re.compile(
     r"^https:\/\/(www.)?(epicgames|humblebundle|gog|store.steampowered|ubisoft)\.com"
 )
@@ -56,10 +55,9 @@ async def scrape_gamedealsfree():
             filtered_submissions = filter_submissions(
                 unread_recent_submissions, reddit_obj
             )
-            print(filtered_submissions)
+
             if len(filtered_submissions):
                 discord_msg = create_discord_msg(filtered_submissions)
-                print(discord_msg)
                 result = requests.post(
                     DISCORD_WEBHOOK_URL, json={"content": discord_msg}
                 )
@@ -69,12 +67,9 @@ async def scrape_gamedealsfree():
                 except requests.exceptions.HTTPError as err:
                     print(err)
                 else:
-                    print(
-                        "Payload delivered successfully, code {}.".format(
-                            result.status_code
-                        )
-                    )
+                    print(f"Payload delivered successfully, code {result.status_code}.")
 
+        print("Done. Checking again in 2 hours...")
         await asyncio.sleep(3600 * 2)
 
 
@@ -117,7 +112,4 @@ def create_discord_msg(submissions):
     return discord_msg
 
 
-loop = asyncio.get_event_loop()
-tasks = [loop.create_task(scrape_gamedealsfree())]
-loop.run_until_complete(asyncio.wait(tasks))
-loop.close()
+asyncio.run(scrape_gamedealsfree())
