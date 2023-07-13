@@ -21,12 +21,12 @@ ACCEPTED_GAME_SITES = re.compile(
 )
 
 
-def get_unread_recent_submissions(recent_submissions, date_of_newest_submission):
+def get_unread_submissions(recent_submissions, last_read_date):
     unread_submissions = []
     for submission in recent_submissions:
         # Recent_submissions are stored from newer to older.
-        # Once we reach a submission older than date_of_newest_submission, we've already seen everything else in the list, so we can just break
-        if submission.created_utc > date_of_newest_submission:
+        # Once we reach a submission older than last_read_date, we've already seen everything else in the list, so we can just break
+        if submission.created_utc > last_read_date:
             unread_submissions.append(submission)
 
         else:
@@ -46,15 +46,13 @@ async def scrape_gamedealsfree():
         print("Checking r/gamedealsfree...")
         # There usually aren't that many free games a day so I only check the 10 newest submissions.
         recent_submissions = gamedealsfree_subreddit.new(limit=10)
-        unread_recent_submissions = get_unread_recent_submissions(
+        unread_submissions = get_unread_submissions(
             recent_submissions, date_of_newest_submission
         )
 
-        if len(unread_recent_submissions):
-            date_of_newest_submission = unread_recent_submissions[0].created_utc
-            filtered_submissions = filter_submissions(
-                unread_recent_submissions, reddit_obj
-            )
+        if len(unread_submissions):
+            date_of_newest_submission = unread_submissions[0].created_utc
+            filtered_submissions = filter_submissions(unread_submissions, reddit_obj)
 
             if len(filtered_submissions):
                 discord_msg = create_discord_msg(filtered_submissions)
