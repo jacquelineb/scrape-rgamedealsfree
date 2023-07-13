@@ -8,9 +8,11 @@ from dotenv import load_dotenv
 
 load_dotenv()
 DISCORD_WEBHOOK_URL = os.getenv("DISCORD_WEBHOOK_URL")
-REDDIT_ID = os.getenv("REDDIT_ID")
-REDDIT_SECRET = os.getenv("REDDIT_SECRET")
-REDDIT_AGENT = os.getenv("REDDIT_AGENT")
+REDDIT = praw.Reddit(
+    client_id=os.getenv("REDDIT_ID"),
+    client_secret=os.getenv("REDDIT_SECRET"),
+    user_agent=os.getenv("REDDIT_AGENT"),
+)
 
 ACCEPTED_GAME_SITES = re.compile(
     r"^https:\/\/(www.)?(epicgames|humblebundle|gog|store.steampowered|ubisoft)\.com"
@@ -32,10 +34,7 @@ def get_unread_submissions(recent_submissions, last_read_date):
 
 
 async def scrape_gamedealsfree():
-    reddit = praw.Reddit(
-        client_id=REDDIT_ID, client_secret=REDDIT_SECRET, user_agent=REDDIT_AGENT
-    )
-    gamedealsfree_subreddit = reddit.subreddit("gamedealsfree")
+    gamedealsfree_subreddit = REDDIT.subreddit("gamedealsfree")
 
     # I just initialize @date_of_newest_submission to a day back so the bot can get some submissions the first time it is run.
     date_of_newest_submission = time.time() - (3600 * 24)
@@ -50,7 +49,7 @@ async def scrape_gamedealsfree():
 
         if len(unread_submissions):
             date_of_newest_submission = unread_submissions[0].created_utc
-            filtered_submissions = filter_submissions(unread_submissions, reddit)
+            filtered_submissions = filter_submissions(unread_submissions)
 
             if len(filtered_submissions):
                 discord_msg = create_discord_msg(filtered_submissions)
@@ -69,7 +68,7 @@ async def scrape_gamedealsfree():
         await asyncio.sleep(3600 * 2)
 
 
-def filter_submissions(unread_submissions, reddit_obj):
+def filter_submissions(unread_submissions):
     """Return a list of r/gamedeals urls (strings) that reference games redeemed from a certain selection of sites.
 
     Each Submission in @unread_submissions comes from r/gamedealsfree. An r/gamedealsfree Submission links to an r/gamedeals Submission,
@@ -82,7 +81,7 @@ def filter_submissions(unread_submissions, reddit_obj):
 
     filtered_submissions = []
     for submission in unread_submissions:
-        linked_submission = reddit_obj.submission(url=submission.url)
+        linked_submission = REDDIT.submission(url=submission.url)
         if ACCEPTED_GAME_SITES.search(linked_submission.url):
             filtered_submissions.append(submission.url)
 
