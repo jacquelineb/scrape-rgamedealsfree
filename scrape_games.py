@@ -33,6 +33,34 @@ def get_unread_submissions(recent_submissions, last_read_date):
     return unread_submissions
 
 
+def get_acceptable_submissions(unread_submissions):
+    """Return a list of r/gamedeals urls (strings) that reference games redeemed from a certain selection of sites.
+
+    Each Submission in @unread_submissions comes from r/gamedealsfree. An r/gamedealsfree Submission links to an r/gamedeals Submission,
+    and an r/gamedeals Submission links to a game site.
+
+    The url of the gamesite linked from the r/gamedeals Submission is checked against a regex (ACCEPTED_GAME_SITES) to
+    determine if it comes from the accepted selection of sites. If so, the url of the r/gamedeals Submission
+    (NOT the r/gamedealsfree submission) is added to the returned list @acceptable_submissions.
+    """
+
+    acceptable_submissions = []
+    for submission in unread_submissions:
+        linked_submission = REDDIT.submission(url=submission.url)
+        if ACCEPTED_GAME_SITES.search(linked_submission.url):
+            acceptable_submissions.append(submission.url)
+
+    return acceptable_submissions
+
+
+def create_discord_msg(submissions):
+    discord_msg = f"Found {len(submissions)} free game(s) on r/gamedealsfree\n"
+    for count, submission in enumerate(submissions, start=1):
+        discord_msg += str(count) + ". " + submission + "\n"
+
+    return discord_msg
+
+
 async def scrape_gamedealsfree():
     gamedealsfree_subreddit = REDDIT.subreddit("gamedealsfree")
 
@@ -66,34 +94,6 @@ async def scrape_gamedealsfree():
 
         print("Done. Checking again in 2 hours...")
         await asyncio.sleep(3600 * 2)
-
-
-def get_acceptable_submissions(unread_submissions):
-    """Return a list of r/gamedeals urls (strings) that reference games redeemed from a certain selection of sites.
-
-    Each Submission in @unread_submissions comes from r/gamedealsfree. An r/gamedealsfree Submission links to an r/gamedeals Submission,
-    and an r/gamedeals Submission links to a game site.
-
-    The url of the gamesite linked from the r/gamedeals Submission is checked against a regex (ACCEPTED_GAME_SITES) to
-    determine if it comes from the accepted selection of sites. If so, the url of the r/gamedeals Submission
-    (NOT the r/gamedealsfree submission) is added to the returned list @acceptable_submissions.
-    """
-
-    acceptable_submissions = []
-    for submission in unread_submissions:
-        linked_submission = REDDIT.submission(url=submission.url)
-        if ACCEPTED_GAME_SITES.search(linked_submission.url):
-            acceptable_submissions.append(submission.url)
-
-    return acceptable_submissions
-
-
-def create_discord_msg(submissions):
-    discord_msg = f"Found {len(submissions)} free game(s) on r/gamedealsfree\n"
-    for count, submission in enumerate(submissions, start=1):
-        discord_msg += str(count) + ". " + submission + "\n"
-
-    return discord_msg
 
 
 asyncio.run(scrape_gamedealsfree())
